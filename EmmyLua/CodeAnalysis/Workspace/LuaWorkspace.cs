@@ -126,7 +126,7 @@ public class LuaWorkspace
             ModuleManager.AddPackageRoot(thirdPartyRoot);
         }
 
-        files.AddRange(CollectFiles(workspace));
+        //files.AddRange(CollectFiles(workspace));
         ModuleManager.AddPackageRoot(workspace);
         foreach (var workspaceRoot in Features.WorkspaceRoots)
         {
