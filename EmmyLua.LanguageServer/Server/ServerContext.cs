@@ -1,8 +1,11 @@
 ﻿using System.Collections.Concurrent;
+using EmmyLua.CodeAnalysis.Compilation.Analyzer;
 using EmmyLua.CodeAnalysis.Compilation.Search;
 using EmmyLua.CodeAnalysis.Compilation.Semantic;
 using EmmyLua.CodeAnalysis.Document;
+using EmmyLua.CodeAnalysis.Syntax.Node.SyntaxNodes;
 using EmmyLua.CodeAnalysis.Workspace;
+using EmmyLua.CodeAnalysis.Workspace.Module;
 using EmmyLua.Configuration;
 using EmmyLua.LanguageServer.Server.Monitor;
 using EmmyLua.LanguageServer.Server.Resource;
@@ -10,6 +13,7 @@ using EmmyLua.LanguageServer.Util;
 using OmniSharp.Extensions.LanguageServer.Protocol.Document;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using OmniSharp.Extensions.LanguageServer.Protocol.Server;
+using static System.Reflection.Metadata.BlobBuilder;
 
 
 namespace EmmyLua.LanguageServer.Server;
@@ -48,6 +52,8 @@ public class ServerContext(ILanguageServerFacade server)
 
         if (IsVscode)
         {
+            MainWorkspacePath = initializeParams.RootPath;
+
             var config = await configServer.Configuration.GetConfiguration(new[]
             {
                 new ConfigurationItem()
@@ -257,6 +263,18 @@ public class ServerContext(ILanguageServerFacade server)
         GC.Collect();
     }
 
+
+    string GetPathByModule(string module) {
+        if (LuaWorkspace.ModuleManager.FindModule(module) != null) return null;
+
+        var testPath = Path.Combine(MainWorkspacePath, module + ".lua");
+        if (File.Exists(testPath)) {
+            return testPath;
+        }
+
+        return null;
+    }
+
     public void UpdateDocument(string uri, string text, CancellationToken cancellationToken)
     {
         LuaDocumentId documentId = LuaDocumentId.VirtualDocumentId;
@@ -264,6 +282,19 @@ public class ServerContext(ILanguageServerFacade server)
         {
             LuaWorkspace.UpdateDocumentByUri(uri, text);
             documentId = LuaWorkspace.GetDocumentIdByUri(uri) ?? LuaDocumentId.VirtualDocumentId;
+
+            var SyntaxTree = LuaWorkspace.GetDocument(documentId).SyntaxTree;
+
+            var blocks = SyntaxTree.SyntaxRoot.Descendants.OfType<LuaCallArgListSyntax>();
+            foreach (var block in blocks) {
+                if (block.Parent is LuaCallExprSyntax require && require.Name == "require") {
+                    var path = GetPathByModule(block.Text.ToString().Replace("\"", "").Replace("'", ""));
+                    if (!string.IsNullOrEmpty(path) && LuaWorkspace.GetDocumentByPath(path) == null) {
+                        var doc = LuaDocument.OpenDocument(path, LuaWorkspace.Features.Language);
+                        LuaWorkspace.AddDocument(doc);
+                    }
+                }
+            }
         });
 
         if (documentId != LuaDocumentId.VirtualDocumentId)
