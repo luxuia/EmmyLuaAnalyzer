@@ -183,6 +183,10 @@ public partial class DeclarationWalker
                 }
             }
         }
+        else if (moduleSyntax.Action is { Text: "no-require" })
+        {
+            Compilation.Workspace.ModuleManager.AddDisableRequire(DocumentId);
+        }
     }
 
     private void AnalyzeTagDiagnostic(LuaDocTagDiagnosticSyntax diagnosticSyntax)
