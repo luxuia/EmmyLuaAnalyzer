@@ -128,7 +128,7 @@ public class AliasAndEnumProvider : ICompleteProviderBase
                 var detail = string.Empty;
                 if (literalType.Description is { Details: { } details })
                 {
-                    detail = string.Join("\n", details.Select(d => d.RepresentText.Trim('#', '@')));
+                    detail = string.Join("\n", details.Select(d => d.RepresentText.Trim('#').Trim('@')));
                 }
 
                 if (literalType is { IsString: true, String: { } stringLiteral })
@@ -175,7 +175,7 @@ public class AliasAndEnumProvider : ICompleteProviderBase
                 var label = stringLiteralType.Content;
                 if (stringLiteralType.Content.StartsWith('\'') || stringLiteralType.Content.StartsWith('"'))
                 {
-                    label = stringLiteralType.Content.Trim('\'', '"');
+                    label = stringLiteralType.Content.Trim('\'').Trim('"');
                 }
 
                 if (context.TriggerToken is not LuaStringToken)

@@ -104,7 +104,7 @@ public class LuaWorkspace
         }
 
         var excludeFolders = Features.ExcludeFolders
-            .Select(it => Path.Combine(directory, it.Trim('\\', '/')))
+            .Select(it => Path.Combine(directory, it.Trim('\\').Trim('/')))
             .Select(Path.GetFullPath)
             .ToList();
         return Features.Extensions
