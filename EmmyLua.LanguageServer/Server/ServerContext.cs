@@ -1,4 +1,5 @@
 ﻿using System.Collections.Concurrent;
+using System.IO;
 using EmmyLua.CodeAnalysis.Compilation.Analyzer;
 using EmmyLua.CodeAnalysis.Compilation.Search;
 using EmmyLua.CodeAnalysis.Compilation.Semantic;
@@ -41,6 +42,15 @@ public class ServerContext(ILanguageServerFacade server)
     public ResourceManager ResourceManager { get; } = new();
 
     private CancellationTokenSource? WorkspaceCancellationTokenSource { get; set; } = null;
+
+    private bool ServerStrted = false;
+
+    private class FileChange {
+        public string uri;
+        public string text;
+        public CancellationToken token;
+    }
+    private Dictionary<string, FileChange> DelayFileChanges { get; } = new();
 
     private ConcurrentDictionary<LuaDocumentId, CancellationTokenSource> DocumentCancellationTokenSources { get; } =
         new();
@@ -116,11 +126,19 @@ public class ServerContext(ILanguageServerFacade server)
             {
                 LuaWorkspace.InitStdLib();
             }
+
+            ServerStrted = true;
         }
         finally
         {
             LockSlim.ExitWriteLock();
         }
+
+
+        foreach (var v in DelayFileChanges.Values) {
+            UpdateDocument(v.uri, v.text, v.token);
+        }
+        DelayFileChanges.Clear();
     }
 
     public void ReadyWrite(Action action)
@@ -277,6 +295,12 @@ public class ServerContext(ILanguageServerFacade server)
 
     public void UpdateDocument(string uri, string text, CancellationToken cancellationToken)
     {
+        if ( !ServerStrted)
+        {
+            DelayFileChanges[uri] = new FileChange() { uri = uri, text = text, token = cancellationToken };
+            return;
+        }
+
         LuaDocumentId documentId = LuaDocumentId.VirtualDocumentId;
         ReadyWrite(() =>
         {
@@ -285,10 +309,17 @@ public class ServerContext(ILanguageServerFacade server)
 
             var SyntaxTree = LuaWorkspace.GetDocument(documentId).SyntaxTree;
 
+            var luafeature = SettingManager.GetLuaFeatures();
             var blocks = SyntaxTree.SyntaxRoot.Descendants.OfType<LuaCallArgListSyntax>();
+
+            var excludeFolders = luafeature.ExcludeFolders;
+
             foreach (var block in blocks) {
-                if (block.Parent is LuaCallExprSyntax require && require.Name == "require") {
+                if (block.Parent is LuaCallExprSyntax require && luafeature.RequireLikeFunction.Contains( require.Name)) {
                     var path = GetPathByModule(block.Text.ToString().Replace("\"", "").Replace("'", ""));
+
+                    //没必要做检查，也不大
+                    //var exclude = !excludeFolders.Any(filter => path.Contains(filter));
                     if (!string.IsNullOrEmpty(path) && LuaWorkspace.GetDocumentByPath(path) == null) {
                         var doc = LuaDocument.OpenDocument(path, LuaWorkspace.Features.Language);
                         LuaWorkspace.AddDocument(doc);
