@@ -168,23 +168,9 @@ public partial class DeclarationWalker
 
     private void AnalyzeTagModule(LuaDocTagModuleSyntax moduleSyntax)
     {
-        if (moduleSyntax.Module is { Value: { } moduleName })
-        {
+        if (moduleSyntax.Module is { Value: { } moduleName }) {
             Compilation.Workspace.ModuleManager.AddVirtualModule(DocumentId, moduleName);
-        } else {
-            if (moduleSyntax.Parent!=null)
-            {
-                var childs = moduleSyntax.Parent.ChildrenWithTokens.OfType<LuaNameToken>();
-                foreach (var child in childs)
-                {
-                    if (child.RepresentText == "no-require") {
-                        Compilation.Workspace.ModuleManager.RemoveDocument(DocumentId);
-                    }
-                }
-            }
-        }
-        else if (moduleSyntax.Action is { Text: "no-require" })
-        {
+        } else if (moduleSyntax.Action is { Text: "no-require" }) {
             Compilation.Workspace.ModuleManager.AddDisableRequire(DocumentId);
         }
     }
