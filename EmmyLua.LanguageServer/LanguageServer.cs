@@ -38,13 +38,14 @@ Log.Logger = new LoggerConfiguration()
 
 var server = await From(options =>
 {
-    if (args.Length == 0)
-    {
-        options.WithOutput(Console.OpenStandardOutput()).WithInput(Console.OpenStandardInput());
-    }
-    else
-    {
-        var port = int.Parse(args[0]);
+int port = 5007;
+if (args.Length > 0) {
+    //options.WithOutput(Console.OpenStandardOutput()).WithInput(Console.OpenStandardInput());
+    port = int.Parse(args[0]);
+}
+
+{
+
         var tcpServer = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
         var ipAddress = new IPAddress(new byte[] { 127, 0, 0, 1 });
         EndPoint endPoint = new IPEndPoint(ipAddress, port);
