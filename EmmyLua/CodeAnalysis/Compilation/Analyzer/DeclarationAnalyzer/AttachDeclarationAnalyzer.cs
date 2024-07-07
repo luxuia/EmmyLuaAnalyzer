@@ -5,6 +5,8 @@ using EmmyLua.CodeAnalysis.Document;
 using EmmyLua.CodeAnalysis.Document.Version;
 using EmmyLua.CodeAnalysis.Syntax.Node;
 using EmmyLua.CodeAnalysis.Syntax.Node.SyntaxNodes;
+using System.Reflection.Metadata;
+using System.Security.AccessControl;
 
 namespace EmmyLua.CodeAnalysis.Compilation.Analyzer.DeclarationAnalyzer;
 
@@ -81,6 +83,31 @@ public class AttachDeclarationAnalyzer(
 
         if (attachedElement is LuaLocalStatSyntax or LuaAssignStatSyntax or LuaTableFieldSyntax)
         {
+
+            var mappingtable = docTagSyntaxes.OfType<LuaDocTagMappingSyntax>().FirstOrDefault();
+            if (mappingtable != null && attachedElement is LuaAssignStatSyntax assignStateSyntax) {
+
+                var nameexp = declarationContext.GetAttachedDeclaration("global");
+                var globalsyntax = nameexp.Info.DeclarationType as LuaVariableRefType;
+                if (nameexp != null) {
+
+                    var parent = declarationContext.Db.QueryTypeFromId(globalsyntax.Id);
+                    //globalsyntax = parent;
+
+                    foreach (var exp in assignStateSyntax.ExprList) {
+                
+                        if (exp is LuaTableExprSyntax tableExprSyntax) {
+               
+                            foreach (var field in tableExprSyntax.FieldList) {
+       
+                                var declaration = declarationContext.GetAttachedDeclaration(field);
+                                declarationContext.Db.AddMember(attachedElement.DocumentId, globalsyntax, declaration);
+                            }
+                        }
+                    }
+                }
+            }
+
             // general type define
             var nameTypeDefine = docTagSyntaxes.OfType<LuaDocTagNamedTypeSyntax>().FirstOrDefault();
             if (nameTypeDefine is { Name.RepresentText: { } name } &&

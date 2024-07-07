@@ -6,6 +6,7 @@ using EmmyLua.CodeAnalysis.Compilation.Scope;
 using EmmyLua.CodeAnalysis.Document;
 using EmmyLua.CodeAnalysis.Syntax.Node;
 using EmmyLua.CodeAnalysis.Syntax.Node.SyntaxNodes;
+using System.ComponentModel;
 
 namespace EmmyLua.CodeAnalysis.Compilation.Analyzer.DeclarationAnalyzer;
 
@@ -196,6 +197,16 @@ public class DeclarationContext(
     public LuaDeclaration? GetAttachedDeclaration(LuaSyntaxElement element)
     {
         return _declarations.GetValueOrDefault(element.UniqueId);
+    }
+
+    public LuaDeclaration? GetAttachedDeclaration(string name) {
+        foreach (var v in _declarations) {
+
+            if (v.Value.Name == name) {
+                return v.Value;
+            }
+        }
+        return null;
     }
 
     public void SetElementRelatedClosure(LuaSyntaxElement element, LuaClosureExprSyntax closureExprSyntax)
