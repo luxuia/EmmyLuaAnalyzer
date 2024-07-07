@@ -5,10 +5,12 @@
         <TargetFramework>net9.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
+        <PublishAot>true</PublishAot>
     </PropertyGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\EmmyLua\EmmyLua.csproj" />
+        <ProjectReference Include="..\LanguageServer.Framework\LanguageServer.Framework.csproj"/>
+        <TrimmerRootAssembly Include="LanguageServer.Framework" />
     </ItemGroup>
 
 </Project>
