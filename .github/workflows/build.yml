@@ -72,4 +72,4 @@ jobs:
           darwin-x64.zip
           darwin-arm64.zip
           win32-x64.zip
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        token: ${{ secrets.RELEASE }}
