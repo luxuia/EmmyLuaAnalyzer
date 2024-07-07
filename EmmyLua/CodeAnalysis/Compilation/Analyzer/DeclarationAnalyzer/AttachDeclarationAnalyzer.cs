@@ -9,7 +9,6 @@ using EmmyLua.CodeAnalysis.Syntax.Node.SyntaxNodes;
 namespace EmmyLua.CodeAnalysis.Compilation.Analyzer.DeclarationAnalyzer;
 
 public class AttachDeclarationAnalyzer(
-    LuaDocument document,
     DeclarationContext declarationContext,
     SearchContext searchContext)
 {
@@ -66,6 +65,16 @@ public class AttachDeclarationAnalyzer(
                         declaration.Feature |= DeclarationFeature.Async;
                         break;
                     }
+                    case LuaDocTagMappingSyntax mappingSyntax:
+                    {
+                        if (mappingSyntax.Name is { RepresentText: { } name })
+                        {
+                            declaration.Name = name;
+                            declarationContext.Db.AddMapping(declaration.UniqueId, name);
+                        }
+
+                        break;
+                    }
                 }
             }
         }
@@ -78,6 +87,10 @@ public class AttachDeclarationAnalyzer(
                 declarations.FirstOrDefault() is { } firstDeclaration)
             {
                 firstDeclaration.Info = firstDeclaration.Info with { DeclarationType = LuaNamedType.Create(name) };
+                if (firstDeclaration.IsGlobal)
+                {
+                    searchContext.Compilation.Db.AddGlobal(declarationContext.DocumentId, firstDeclaration.Name, firstDeclaration, true);
+                }
                 return;
             }
 
@@ -91,6 +104,10 @@ public class AttachDeclarationAnalyzer(
                     if (declarations.Count > i)
                     {
                         declarations[i].Info = declarations[i].Info with { DeclarationType = luaTypeList[i] };
+                        if (declarations[i].IsGlobal)
+                        {
+                            searchContext.Compilation.Db.AddGlobal(declarationContext.DocumentId, declarations[i].Name, declarations[i], true);
+                        }
                     }
                 }
 
@@ -140,9 +157,9 @@ public class AttachDeclarationAnalyzer(
             {
                 switch (funcStatSyntax)
                 {
-                    case { IsLocal: true, LocalName.Name: { } name }:
+                    case { IsLocal: true, LocalName: { } name }:
                     {
-                        if (declarationContext.GetAttachedDeclaration(funcStatSyntax.LocalName) is { } luaDeclaration)
+                        if (declarationContext.GetAttachedDeclaration(name) is { } luaDeclaration)
                         {
                             yield return luaDeclaration;
                         }

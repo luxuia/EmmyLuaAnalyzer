@@ -7,7 +7,8 @@ using EmmyLua.CodeAnalysis.Syntax.Walker;
 
 namespace EmmyLua.CodeAnalysis.Compilation.Analyzer.DeclarationAnalyzer.DeclarationWalker;
 
-public partial class DeclarationWalker(DeclarationContext declarationContext, SearchContext searchContext) : ILuaElementWalker
+public partial class DeclarationWalker(DeclarationContext declarationContext, SearchContext searchContext)
+    : ILuaElementWalker
 {
     private LuaCompilation Compilation => searchContext.Compilation;
 
@@ -127,6 +128,11 @@ public partial class DeclarationWalker(DeclarationContext declarationContext, Se
                 AnalyzeSimpleTag(deprecatedSyntax);
                 break;
             }
+            case LuaDocTagNodiscardSyntax nodiscardSyntax:
+            {
+                AnalyzeSimpleTag(nodiscardSyntax);
+                break;
+            }
             case LuaDocTagAsyncSyntax asyncSyntax:
             {
                 AnalyzeSimpleTag(asyncSyntax);
@@ -170,6 +176,11 @@ public partial class DeclarationWalker(DeclarationContext declarationContext, Se
             case LuaDocTagOverloadSyntax overloadSyntax:
             {
                 AnalyzeSimpleTag(overloadSyntax);
+                break;
+            }
+            case LuaDocTagMappingSyntax mappingSyntax:
+            {
+                AnalyzeSimpleTag(mappingSyntax);
                 break;
             }
         }

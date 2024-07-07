@@ -14,6 +14,8 @@ public class WorkspaceIndex
 {
     private TypeIndex TypeIndex { get; } = new();
 
+    private PriorityIndex<string, LuaDeclaration> Globals { get; } = new();
+
     private Dictionary<LuaDocumentId, LuaType> ModuleTypes { get; } = new();
 
     private Dictionary<LuaDocumentId, List<LuaElementPtr<LuaExprSyntax>>> ModuleReturns { get; } = new();
@@ -30,9 +32,12 @@ public class WorkspaceIndex
 
     private Dictionary<LuaDocumentId, LuaDeclarationTree> DocumentDeclarationTrees { get; } = new();
 
+    private UniqueIndex<SyntaxElementId, string> MappingName { get; } = new();
+
     public void Remove(LuaDocumentId documentId)
     {
         TypeIndex.Remove(documentId);
+        Globals.Remove(documentId);
         ModuleTypes.Remove(documentId);
         ModuleReturns.Remove(documentId);
         NameExpr.Remove(documentId);
@@ -59,7 +64,7 @@ public class WorkspaceIndex
                 var name = namedType.Name;
                 if (name == "global")
                 {
-                    TypeIndex.AddGlobal(documentId, false, luaDeclaration.Name, luaDeclaration);
+                    AddGlobal(documentId, luaDeclaration.Name, luaDeclaration, false);
                     return;
                 }
 
@@ -166,9 +171,11 @@ public class WorkspaceIndex
         TypeIndex.AddSuper(documentId, name, super);
     }
 
-    public void AddGlobal(LuaDocumentId documentId, bool forceDefine, string name, LuaDeclaration declaration)
+    public void AddGlobal(LuaDocumentId documentId, string name, LuaDeclaration declaration,
+        bool hightestPriority = false)
     {
-        TypeIndex.AddGlobal(documentId, forceDefine, name, declaration);
+        Globals.AddGlobal(documentId, name, declaration, hightestPriority);
+        TypeIndex.AddParentNamedType(documentId, "global", declaration);
     }
 
     public void AddEnum(LuaDocumentId documentId, string name, LuaType? baseType, LuaDeclaration declaration)
@@ -191,23 +198,33 @@ public class WorkspaceIndex
         TypeIndex.AddGenericParam(documentId, name, luaDeclaration);
     }
 
+    public void AddMapping(SyntaxElementId id, string name)
+    {
+        MappingName.Update(id.DocumentId, id, name);
+    }
+
     #endregion
 
     #region Query
 
     public IEnumerable<IDeclaration> QueryAllGlobal()
     {
-        return TypeIndex.QueryAllGlobal();
+        return Globals.QueryAll();
     }
 
     public IEnumerable<IDeclaration> QueryMembers(LuaType type)
     {
+        if (type is LuaNamedType { Name: "global" })
+        {
+            return QueryAllGlobal();
+        }
+
         return TypeIndex.QueryMembers(type);
     }
 
     public IDeclaration? QueryGlobals(string name)
     {
-        return TypeIndex.QueryGlobals(name);
+        return Globals.Query(name);
     }
 
     public IEnumerable<LuaType> QuerySupers(string name)
@@ -317,7 +334,7 @@ public class WorkspaceIndex
     {
         foreach (var ptr in MultiIndexExpr.Query(fieldName))
         {
-            if (ptr.ToNode(context) is {} node)
+            if (ptr.ToNode(context) is { } node)
             {
                 yield return node;
             }
@@ -328,7 +345,7 @@ public class WorkspaceIndex
     {
         foreach (var ptr in NameExpr.Query(name))
         {
-            if (ptr.ToNode(context) is {} node)
+            if (ptr.ToNode(context) is { } node)
             {
                 yield return node;
             }
@@ -339,7 +356,7 @@ public class WorkspaceIndex
     {
         foreach (var ptr in NameType.Query(name))
         {
-            if (ptr.ToNode(context) is {} node)
+            if (ptr.ToNode(context) is { } node)
             {
                 yield return node;
             }
@@ -355,5 +372,11 @@ public class WorkspaceIndex
     {
         return TypeIndex.QueryAllMembers();
     }
+
+    public string? QueryMapping(SyntaxElementId id)
+    {
+        return MappingName.Query(id);
+    }
+
     #endregion
 }
