@@ -93,7 +93,7 @@ public class LuaWorkspace
     public void InitStdLib()
     {
         var stdLib = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Resources", "std");
-        LoadWorkspace(stdLib);
+        LoadWorkspace(stdLib, true);
     }
 
     private IEnumerable<string> CollectFiles(string directory)
@@ -122,7 +122,7 @@ public class LuaWorkspace
         var files = new List<string>();
         foreach (var thirdPartyRoot in thirdPartyRoots)
         {
-            files.AddRange(CollectFiles(thirdPartyRoot));
+            //files.AddRange(CollectFiles(thirdPartyRoot));
             ModuleManager.AddPackageRoot(thirdPartyRoot);
         }
 
@@ -165,10 +165,13 @@ public class LuaWorkspace
         Monitor?.OnFinishLoadWorkspace();
     }
 
-    public void LoadWorkspace(string workspace)
+    public void LoadWorkspace(string workspace, bool loadall =false)
     {
         Monitor?.OnStartLoadWorkspace();
-        var files = CollectFiles(workspace).ToList();
+        var files = new List<string>();
+        if (loadall) {
+            files = CollectFiles(workspace).ToList();
+        }
         var documents =
             files.AsParallel().Select(file => LuaDocument.OpenDocument(file, Features.Language)).ToList();
         ModuleManager.AddPackageRoot(workspace);

@@ -45,8 +45,12 @@ public class RequireProvider : ICompleteProviderBase
                 });
             }
 
-            var workspace = context.SemanticModel.Compilation.Workspace;
-            var rootpath = Path.Combine(workspace.MainWorkspace, string.Join(Path.DirectorySeparatorChar, parts[..^1]));
+            var Workspace = context.SemanticModel.Compilation.Workspace;
+            var realWorkSpace = Workspace.ModuleManager.GetWorkspace(context.SemanticModel.Document);
+            if (realWorkSpace == null) {
+                realWorkSpace = Workspace.MainWorkspace;
+            }
+            var rootpath = Path.Combine(realWorkSpace, string.Join(Path.DirectorySeparatorChar, parts[..^1]));
             if (Directory.Exists(rootpath)) {
                 // 根据require延迟加载的情况, 文件夹下面的没有加载进module, 需要这里处理
 
@@ -54,7 +58,7 @@ public class RequireProvider : ICompleteProviderBase
                 var files = Directory.GetFiles(rootpath, "*.lua");
                 foreach (var file in files) {
 
-                    var relatepath = file.Replace(workspace.MainWorkspace, "").Trim(Path.DirectorySeparatorChar);
+                    var relatepath = file.Replace(realWorkSpace, "").Trim(Path.DirectorySeparatorChar);
                     var name = relatepath.Replace(Path.DirectorySeparatorChar, '.').Replace(".lua", "");
 
                     var suffix = name.Replace(moduleBase + ".", "");
@@ -76,7 +80,7 @@ public class RequireProvider : ICompleteProviderBase
                 var dirs = Directory.GetDirectories(rootpath);
                 foreach (var file in dirs) {
 
-                    var relatepath = file.Replace(workspace.MainWorkspace, "").Trim(Path.DirectorySeparatorChar);
+                    var relatepath = file.Replace(realWorkSpace, "").Trim(Path.DirectorySeparatorChar);
                     var name = relatepath.Replace(Path.DirectorySeparatorChar, '.');
 
                     var suffix = name.Replace(moduleBase + ".", "");
