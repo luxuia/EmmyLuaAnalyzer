@@ -122,7 +122,7 @@ public class LuaWorkspace
         var files = new List<string>();
         foreach (var thirdPartyRoot in thirdPartyRoots)
         {
-            files.AddRange(CollectFiles(thirdPartyRoot));
+            //files.AddRange(CollectFiles(thirdPartyRoot));
             ModuleManager.AddPackageRoot(thirdPartyRoot);
         }
 
@@ -168,7 +168,8 @@ public class LuaWorkspace
     public void LoadWorkspace(string workspace)
     {
         Monitor?.OnStartLoadWorkspace();
-        var files = CollectFiles(workspace).ToList();
+        var files = new List<string>();
+        //files = CollectFiles(workspace).ToList();
         var documents =
             files.AsParallel().Select(file => LuaDocument.OpenDocument(file, Features.Language)).ToList();
         ModuleManager.AddPackageRoot(workspace);
