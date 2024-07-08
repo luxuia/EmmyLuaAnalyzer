@@ -15,6 +15,10 @@ public class DidChangeWatchedFilesHandler(ServerContext context)
 
     public async Task<Unit> Handle(DidChangeWatchedFilesParams request, CancellationToken cancellationToken)
     {
+        //DELAY_REQUIRE
+        { return Unit.Value; }
+
+
         var changes = request.Changes.ToList();
         if (changes.Count == 1)
         {
