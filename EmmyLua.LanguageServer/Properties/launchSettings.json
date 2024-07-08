@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "EmmyLua.LanguageServer": {
+      "commandName": "Project",
+      "commandLineArgs": "5007"
+    }
+  }
+}
