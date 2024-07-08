@@ -147,7 +147,7 @@ public class SettingManager
             }
             else if (WorkspaceEncoding.Length > 0)
             {
-                features.Encoding = Encoding.GetEncoding(WorkspaceEncoding);
+                features.Encoding = Encoding.GetEncoding("UTF-8");
             }
         }
         catch (Exception)

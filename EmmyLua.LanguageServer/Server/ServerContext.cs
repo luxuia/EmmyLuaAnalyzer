@@ -316,7 +316,7 @@ public class ServerContext(ILanguageServerFacade server)
 
             foreach (var block in blocks) {
                 if (block.Parent is LuaCallExprSyntax require && luafeature.RequireLikeFunction.Contains( require.Name)) {
-                    var path = GetPathByModule(block.Text.ToString().Replace("\"", "").Replace("'", ""));
+                    var path = GetPathByModule(block.Text.ToString().Replace("\"", "").Replace("'", "").Replace('.', Path.DirectorySeparatorChar));
 
                     //没必要做检查，也不大
                     //var exclude = !excludeFolders.Any(filter => path.Contains(filter));
