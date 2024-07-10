@@ -85,23 +85,28 @@ public class AttachDeclarationAnalyzer(
         {
 
             var mappingtable = docTagSyntaxes.OfType<LuaDocTagMappingSyntax>().FirstOrDefault();
-            if (mappingtable != null && attachedElement is LuaAssignStatSyntax assignStateSyntax) {
-
-                var nameexp = declarationContext.GetAttachedDeclaration("global");
+            if (mappingtable != null) {
+                var tomix = attachedElement.FirstChild<LuaTableExprSyntax>();
+                var nameexp = declarationContext.GetAttachedDeclaration(mappingtable.Name.RepresentText);
                 var globalsyntax = nameexp.Info.DeclarationType as LuaVariableRefType;
-                if (nameexp != null) {
+                if (nameexp != null && tomix != null) {
 
                     var parent = declarationContext.Db.QueryTypeFromId(globalsyntax.Id);
+                    var globalsync = nameexp.Info.Ptr.ToNode(declarationContext.Document);
+                    var definesync = searchContext.InferAndUnwrap(globalsync);
+                    //var definesync2 = searchContext.InferExprShouldBeType(globalsyntax);
                     //globalsyntax = parent;
+                    //var relatedType = searchContext.Compilation.Db.QueryTypeFromId(globalsync.UniqueId);
 
-                    foreach (var exp in assignStateSyntax.ExprList) {
-                
-                        if (exp is LuaTableExprSyntax tableExprSyntax) {
-               
-                            foreach (var field in tableExprSyntax.FieldList) {
-       
-                                var declaration = declarationContext.GetAttachedDeclaration(field);
-                                declarationContext.Db.AddMember(attachedElement.DocumentId, globalsyntax, declaration);
+                    var callexp = globalsync.Parent.FirstChild<LuaCallExprSyntax>();
+                    if (callexp != null) {
+                        var xx = searchContext.Infer(callexp);
+
+                        foreach (var field in tomix.FieldList) {
+
+                            var declaration = declarationContext.GetAttachedDeclaration(field);
+                            if (declaration != null && xx != null) {
+                                declarationContext.Db.AddMember(attachedElement.DocumentId, xx, declaration);
                             }
                         }
                     }
