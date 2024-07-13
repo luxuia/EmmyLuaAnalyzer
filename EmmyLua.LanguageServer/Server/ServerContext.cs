@@ -98,7 +98,7 @@ public class ServerContext(ILanguageServerFacade server)
             {
                 MainWorkspacePath = rootPath;
                 LuaWorkspace.Monitor = Monitor;
-                LuaWorkspace.Logger = new StreamWriter("lua_emmy_log.txt", false);
+                Logger.writer = new StreamWriter("lua_emmy_log.txt", false);
                 SettingManager.SupportMultiEncoding();
                 SettingManager.Watch(MainWorkspacePath);
                 SettingManager.OnSettingChanged += OnConfigChanged;

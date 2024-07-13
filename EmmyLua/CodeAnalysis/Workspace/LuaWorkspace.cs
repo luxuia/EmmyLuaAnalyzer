@@ -4,6 +4,7 @@ using EmmyLua.CodeAnalysis.Document;
 using EmmyLua.CodeAnalysis.Syntax.Node.SyntaxNodes;
 using EmmyLua.CodeAnalysis.Workspace.Module;
 using EmmyLua.Configuration;
+using System;
 using System.Diagnostics;
 using System.Reflection.Metadata;
 using System.Reflection.Metadata.Ecma335;
@@ -248,43 +249,39 @@ public class LuaWorkspace
         var now = DateTimeOffset.Now.ToUnixTimeMilliseconds();
         var document = LuaDocument.FromUri(uri, text, Features.Language);
         document.Id = AllocateId();
-        Documents[document.Id] = document;
-        UrlToDocument[document.Uri] = document.Id;
-        PathToDocument[document.Path] = document.Id;
-        ModuleManager.AddDocument(document);
 
-        Logger.WriteLine($"AddDocumentByUri {document.Path} CostTime {DateTimeOffset.Now.ToUnixTimeMilliseconds() - now}");
-        Logger.Flush();
-        UpdateDelayRequire(document.Id);
+        using (new Logger.Log($"AddDocumentByUri {document.Path}")) {
 
-        Compilation.AddSyntaxTree(document.Id, document.SyntaxTree);
+            Documents[document.Id] = document;
+            UrlToDocument[document.Uri] = document.Id;
+            PathToDocument[document.Path] = document.Id;
+            ModuleManager.AddDocument(document);
 
+            UpdateDelayRequire(document.Id);
+
+            Compilation.AddSyntaxTree(document.Id, document.SyntaxTree);
+        }
     }
 
     public void AddDocument(LuaDocument document)
     {
-        if (document.Id.IsVirtual)
-        {
-            document.Id = AllocateId();
+        using (new Logger.Log($"AddDocument {document.Path}")) {
+            if (document.Id.IsVirtual) {
+                document.Id = AllocateId();
+            }
+
+            document.OpenState = OpenState.Opened;
+            Documents.Add(document.Id, document);
+            if (!document.IsVirtual) {
+                UrlToDocument.Add(document.Uri, document.Id);
+                PathToDocument.Add(document.Path, document.Id);
+                ModuleManager.AddDocument(document);
+            }
+
+            Compilation.AddSyntaxTree(document.Id, document.SyntaxTree);
+
+            UpdateDelayRequire(document.Id);
         }
-
-        var now = DateTimeOffset.Now.ToUnixTimeMilliseconds();
-      
-        document.OpenState = OpenState.Opened;
-        Documents.Add(document.Id, document);
-        if (!document.IsVirtual)
-        {
-            UrlToDocument.Add(document.Uri, document.Id);
-            PathToDocument.Add(document.Path, document.Id);
-            ModuleManager.AddDocument(document);
-        }
-
-        Compilation.AddSyntaxTree(document.Id, document.SyntaxTree);
-
-        Logger.WriteLine($"AddDocument {document.Path} CostTime {DateTimeOffset.Now.ToUnixTimeMilliseconds() - now}");
-        Logger.Flush();
-
-        UpdateDelayRequire(document.Id);
     }
 
     public void RemoveDocumentByUri(string uri)
@@ -335,17 +332,17 @@ public class LuaWorkspace
 
                 if (doc != null) {
                     if (Compilation.GetSyntaxTree(doc.Id) == null) {
-                        var now = DateTimeOffset.Now.ToUnixTimeMilliseconds();
 
-                        doc.ReplaceText(ReadFile(doc.Path));
+                        using (new Logger.Log($"AddDocument {doc.Path}")) {
 
-                        var xx = doc.SyntaxTree;
+                            doc.ReplaceText(ReadFile(doc.Path));
 
-                        Logger.WriteLine($"UpdateDelayRequire Module {doc.Path} CostTime {DateTimeOffset.Now.ToUnixTimeMilliseconds() - now}");
-                        Logger.Flush();
-                        UpdateDelayRequire(doc.Id);
+                            var xx = doc.SyntaxTree;
 
-                        Compilation.AddSyntaxTree(doc.Id, doc.SyntaxTree);
+                            UpdateDelayRequire(doc.Id);
+
+                            Compilation.AddSyntaxTree(doc.Id, doc.SyntaxTree);
+                        }
                     }
                 }
             }
@@ -356,17 +353,16 @@ public class LuaWorkspace
     {
         if (Documents.TryGetValue(documentId, out var document))
         {
-            var now = DateTimeOffset.Now.ToUnixTimeMilliseconds();
+            using (new Logger.Log($"AddDocument {document.Path}")) {
 
-            document.OpenState = OpenState.Opened;
-            document.ReplaceText(text);
-            Compilation.RemoveSyntaxTree(documentId);
+                document.OpenState = OpenState.Opened;
+                document.ReplaceText(text);
+                Compilation.RemoveSyntaxTree(documentId);
 
-            Logger.WriteLine($"UpdateDocument {document.Path} CostTime {DateTimeOffset.Now.ToUnixTimeMilliseconds() - now}");
-            Logger.Flush();
-            UpdateDelayRequire(documentId);
+                UpdateDelayRequire(documentId);
 
-            Compilation.AddSyntaxTree(documentId, document.SyntaxTree);
+                Compilation.AddSyntaxTree(documentId, document.SyntaxTree);
+            }
         }
     }
     string GetPathByModule(string module) {
