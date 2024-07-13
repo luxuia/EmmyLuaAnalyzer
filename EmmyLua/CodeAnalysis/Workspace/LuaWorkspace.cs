@@ -1,7 +1,11 @@
 ﻿using EmmyLua.CodeAnalysis.Common;
 using EmmyLua.CodeAnalysis.Compilation;
 using EmmyLua.CodeAnalysis.Document;
+using EmmyLua.CodeAnalysis.Syntax.Node.SyntaxNodes;
 using EmmyLua.CodeAnalysis.Workspace.Module;
+using EmmyLua.Configuration;
+using System.Reflection.Metadata;
+using System.Xml.Linq;
 
 namespace EmmyLua.CodeAnalysis.Workspace;
 
@@ -126,7 +130,7 @@ public class LuaWorkspace
             ModuleManager.AddPackageRoot(thirdPartyRoot);
         }
 
-        //files.AddRange(CollectFiles(workspace));
+        files.AddRange(CollectFiles(workspace));
         ModuleManager.AddPackageRoot(workspace);
         foreach (var workspaceRoot in Features.WorkspaceRoots)
         {
@@ -154,14 +158,16 @@ public class LuaWorkspace
             PathToDocument[document.Path] = document.Id;
         }
 
+        /*
         // for parallel
         var syntaxTrees = documents
             .AsParallel()
             .Select(it => (it.Id, it.SyntaxTree))
             .ToList();
-
+        */
         ModuleManager.AddDocuments(documents);
-        Compilation.AddSyntaxTrees(syntaxTrees);
+
+        //Compilation.AddSyntaxTrees(syntaxTrees);
         Monitor?.OnFinishLoadWorkspace();
     }
 
@@ -231,6 +237,8 @@ public class LuaWorkspace
         PathToDocument[document.Path] = document.Id;
         ModuleManager.AddDocument(document);
         Compilation.AddSyntaxTree(document.Id, document.SyntaxTree);
+
+        UpdateDelayRequire(document.Id);
     }
 
     public void AddDocument(LuaDocument document)
@@ -250,6 +258,8 @@ public class LuaWorkspace
         }
 
         Compilation.AddSyntaxTree(document.Id, document.SyntaxTree);
+
+        UpdateDelayRequire(document.Id);
     }
 
     public void RemoveDocumentByUri(string uri)
@@ -275,6 +285,34 @@ public class LuaWorkspace
         }
     }
 
+    public void UpdateDelayRequire(LuaDocumentId documentId) {
+        var SyntaxTree = GetDocument(documentId).SyntaxTree;
+
+        var blocks = SyntaxTree.SyntaxRoot.Descendants.OfType<LuaCallArgListSyntax>();
+
+        var excludeFolders = Features.ExcludeFolders;
+
+        foreach (var block in blocks) {
+            if (block.Parent is LuaCallExprSyntax require && Features.RequireLikeFunction.Contains(require.Name)) {
+                var path = GetPathByModule(block.Text.ToString().Replace("\"", "").Replace("'", "").Replace('.', Path.DirectorySeparatorChar));
+                if (!string.IsNullOrEmpty(path)) {
+                    var exclude = !excludeFolders.Any(filter => path.Contains(filter));
+
+                    var doc = GetDocumentByPath(path);
+
+                    if (doc == null) {
+                        doc = LuaDocument.OpenDocument(path, Features.Language);
+                        AddDocument(doc);
+                    }
+                    if( Compilation.GetSyntaxTree(doc.Id) == null ) {
+                        var xx = doc.SyntaxTree;
+                        Compilation.AddSyntaxTree(documentId, doc.SyntaxTree);
+                    }
+                }
+            }
+        }
+    }
+
     public void UpdateDocument(LuaDocumentId documentId, string text)
     {
         if (Documents.TryGetValue(documentId, out var document))
@@ -283,7 +321,19 @@ public class LuaWorkspace
             document.ReplaceText(text);
             Compilation.RemoveSyntaxTree(documentId);
             Compilation.AddSyntaxTree(documentId, document.SyntaxTree);
+
+            UpdateDelayRequire(documentId);
         }
+    }
+    string GetPathByModule(string module) {
+        if (ModuleManager.FindModule(module) != null) return null;
+
+        var testPath = Path.Combine(MainWorkspace, module + ".lua");
+        if (File.Exists(testPath)) {
+            return testPath;
+        }
+
+        return null;
     }
 
     public void UpdateDocumentByUri(string uri, string text)

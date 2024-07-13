@@ -282,17 +282,7 @@ public class ServerContext(ILanguageServerFacade server)
     }
 
 
-    string GetPathByModule(string module) {
-        if (LuaWorkspace.ModuleManager.FindModule(module) != null) return null;
-
-        var testPath = Path.Combine(MainWorkspacePath, module + ".lua");
-        if (File.Exists(testPath)) {
-            return testPath;
-        }
-
-        return null;
-    }
-
+ 
     public void UpdateDocument(string uri, string text, CancellationToken cancellationToken)
     {
         if ( !ServerStrted)
@@ -307,25 +297,7 @@ public class ServerContext(ILanguageServerFacade server)
             LuaWorkspace.UpdateDocumentByUri(uri, text);
             documentId = LuaWorkspace.GetDocumentIdByUri(uri) ?? LuaDocumentId.VirtualDocumentId;
 
-            var SyntaxTree = LuaWorkspace.GetDocument(documentId).SyntaxTree;
 
-            var luafeature = SettingManager.GetLuaFeatures();
-            var blocks = SyntaxTree.SyntaxRoot.Descendants.OfType<LuaCallArgListSyntax>();
-
-            var excludeFolders = luafeature.ExcludeFolders;
-
-            foreach (var block in blocks) {
-                if (block.Parent is LuaCallExprSyntax require && luafeature.RequireLikeFunction.Contains( require.Name)) {
-                    var path = GetPathByModule(block.Text.ToString().Replace("\"", "").Replace("'", "").Replace('.', Path.DirectorySeparatorChar));
-
-                    //没必要做检查，也不大
-                    //var exclude = !excludeFolders.Any(filter => path.Contains(filter));
-                    if (!string.IsNullOrEmpty(path) && LuaWorkspace.GetDocumentByPath(path) == null) {
-                        var doc = LuaDocument.OpenDocument(path, LuaWorkspace.Features.Language);
-                        LuaWorkspace.AddDocument(doc);
-                    }
-                }
-            }
         });
 
         if (documentId != LuaDocumentId.VirtualDocumentId)
