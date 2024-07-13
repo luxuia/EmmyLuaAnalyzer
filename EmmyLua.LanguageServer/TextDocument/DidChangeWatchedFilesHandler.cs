@@ -4,6 +4,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Client.Capabilities;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using OmniSharp.Extensions.LanguageServer.Protocol.Workspace;
 using Serilog;
+using System.IO;
 
 namespace EmmyLua.LanguageServer.TextDocument;
 
@@ -20,13 +21,26 @@ public class DidChangeWatchedFilesHandler(ServerContext context)
 
 
         var changes = request.Changes.ToList();
-        if (changes.Count == 1)
+        var list = new List<FileEvent>();
+
+        var filters = context.LuaWorkspace.Features.ExcludeFolders;
+
+        foreach (var fileEvent in changes) {
+            if (fileEvent.Type == FileChangeType.Created || fileEvent.Type == FileChangeType.Changed) {
+                var uri = fileEvent.Uri.ToUri().AbsoluteUri;
+                if (!filters.Any(filter => uri.Contains(filter))) {
+                    list.Add(fileEvent);
+                }
+            }
+        }
+
+        if (list.Count == 1)
         {
-            return await UpdateOneFileEventAsync(changes[0], cancellationToken);
+            return await UpdateOneFileEventAsync(list[0], cancellationToken);
         }
         else
         {
-            return await UpdateManyFileEventAsync(changes, cancellationToken);
+            return await UpdateManyFileEventAsync(list, cancellationToken);
         }
     }
 

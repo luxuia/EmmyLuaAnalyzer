@@ -1,3 +1,3 @@
-local test_define = require 'test_define'
+local test_define = require 'global'
 
-test_define.dd.a
+test_define.mg1

@@ -4,9 +4,10 @@ using EmmyLua.CodeAnalysis.Document;
 using EmmyLua.CodeAnalysis.Syntax.Node.SyntaxNodes;
 using EmmyLua.CodeAnalysis.Workspace.Module;
 using EmmyLua.Configuration;
+using System.Diagnostics;
 using System.Reflection.Metadata;
+using System.Reflection.Metadata.Ecma335;
 using System.Xml.Linq;
-
 namespace EmmyLua.CodeAnalysis.Workspace;
 
 public class LuaWorkspace
@@ -50,6 +51,8 @@ public class LuaWorkspace
     private int _idCounter = 1;
 
     public LuaWorkspaceMonitor? Monitor { get; set; }
+
+    public StreamWriter Logger;
 
     public LuaCompilation Compilation { get; }
 
@@ -139,7 +142,7 @@ public class LuaWorkspace
 
         var documents =
             new List<LuaDocument>(files.AsParallel().Select(
-                file => LuaDocument.FromPath(file, ReadFile(file), Features.Language)));
+                file => LuaDocument.FromPath(file, "", Features.Language)));
 
         foreach (var document in documents)
         {
@@ -165,7 +168,19 @@ public class LuaWorkspace
             .Select(it => (it.Id, it.SyntaxTree))
             .ToList();
         */
+
+
         ModuleManager.AddDocuments(documents);
+
+        foreach (var document in documents) {
+            if (document.Path.Contains("editor_hint")) {
+                document.ReplaceText(ReadFile(document.Path));
+                
+                UpdateDelayRequire(document.Id);
+
+                Compilation.AddSyntaxTree(document.Id, document.SyntaxTree);
+            }
+        }
 
         //Compilation.AddSyntaxTrees(syntaxTrees);
         Monitor?.OnFinishLoadWorkspace();
@@ -230,15 +245,20 @@ public class LuaWorkspace
 
     public void AddDocumentByUri(string uri, string text)
     {
+        var now = DateTimeOffset.Now.ToUnixTimeMilliseconds();
         var document = LuaDocument.FromUri(uri, text, Features.Language);
         document.Id = AllocateId();
         Documents[document.Id] = document;
         UrlToDocument[document.Uri] = document.Id;
         PathToDocument[document.Path] = document.Id;
         ModuleManager.AddDocument(document);
+
+        Logger.WriteLine($"AddDocumentByUri {document.Path} CostTime {DateTimeOffset.Now.ToUnixTimeMilliseconds() - now}");
+        Logger.Flush();
+        UpdateDelayRequire(document.Id);
+
         Compilation.AddSyntaxTree(document.Id, document.SyntaxTree);
 
-        UpdateDelayRequire(document.Id);
     }
 
     public void AddDocument(LuaDocument document)
@@ -248,6 +268,8 @@ public class LuaWorkspace
             document.Id = AllocateId();
         }
 
+        var now = DateTimeOffset.Now.ToUnixTimeMilliseconds();
+      
         document.OpenState = OpenState.Opened;
         Documents.Add(document.Id, document);
         if (!document.IsVirtual)
@@ -258,6 +280,9 @@ public class LuaWorkspace
         }
 
         Compilation.AddSyntaxTree(document.Id, document.SyntaxTree);
+
+        Logger.WriteLine($"AddDocument {document.Path} CostTime {DateTimeOffset.Now.ToUnixTimeMilliseconds() - now}");
+        Logger.Flush();
 
         UpdateDelayRequire(document.Id);
     }
@@ -294,19 +319,33 @@ public class LuaWorkspace
 
         foreach (var block in blocks) {
             if (block.Parent is LuaCallExprSyntax require && Features.RequireLikeFunction.Contains(require.Name)) {
-                var path = GetPathByModule(block.Text.ToString().Replace("\"", "").Replace("'", "").Replace('.', Path.DirectorySeparatorChar));
-                if (!string.IsNullOrEmpty(path)) {
-                    var exclude = !excludeFolders.Any(filter => path.Contains(filter));
-
-                    var doc = GetDocumentByPath(path);
-
-                    if (doc == null) {
-                        doc = LuaDocument.OpenDocument(path, Features.Language);
-                        AddDocument(doc);
+                var moduleName = block.Text.ToString().Replace("\"", "").Replace("'", "");
+                var doc = ModuleManager.FindModule(moduleName);
+                if (doc == null) {
+                    var path = GetPathByModule(moduleName.Replace('.', Path.DirectorySeparatorChar));
+                    if (!string.IsNullOrEmpty(path)) {
+                        GetDocumentByPath(path);
+                        var exclude = excludeFolders.Any(filter => path.Contains(filter));
+                        if (!exclude) {
+                            doc = LuaDocument.OpenDocument(path, Features.Language);
+                            AddDocument(doc);
+                        }
                     }
-                    if( Compilation.GetSyntaxTree(doc.Id) == null ) {
+                }
+
+                if (doc != null) {
+                    if (Compilation.GetSyntaxTree(doc.Id) == null) {
+                        var now = DateTimeOffset.Now.ToUnixTimeMilliseconds();
+
+                        doc.ReplaceText(ReadFile(doc.Path));
+
                         var xx = doc.SyntaxTree;
-                        Compilation.AddSyntaxTree(documentId, doc.SyntaxTree);
+
+                        Logger.WriteLine($"UpdateDelayRequire Module {doc.Path} CostTime {DateTimeOffset.Now.ToUnixTimeMilliseconds() - now}");
+                        Logger.Flush();
+                        UpdateDelayRequire(doc.Id);
+
+                        Compilation.AddSyntaxTree(doc.Id, doc.SyntaxTree);
                     }
                 }
             }
@@ -317,12 +356,17 @@ public class LuaWorkspace
     {
         if (Documents.TryGetValue(documentId, out var document))
         {
+            var now = DateTimeOffset.Now.ToUnixTimeMilliseconds();
+
             document.OpenState = OpenState.Opened;
             document.ReplaceText(text);
             Compilation.RemoveSyntaxTree(documentId);
-            Compilation.AddSyntaxTree(documentId, document.SyntaxTree);
 
+            Logger.WriteLine($"UpdateDocument {document.Path} CostTime {DateTimeOffset.Now.ToUnixTimeMilliseconds() - now}");
+            Logger.Flush();
             UpdateDelayRequire(documentId);
+
+            Compilation.AddSyntaxTree(documentId, document.SyntaxTree);
         }
     }
     string GetPathByModule(string module) {
