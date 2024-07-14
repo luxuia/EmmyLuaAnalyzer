@@ -31,7 +31,7 @@ public class LuaFeatures
 
     public List<string> RequirePattern { get; set; } =
     [
-        "?/init.lua",
+       // "?/init.lua",
         "?.lua"
     ];
 

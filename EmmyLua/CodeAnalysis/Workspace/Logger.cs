@@ -32,7 +32,7 @@ public class Logger {
             writeLineCount++;
 
             if (writeLineCount > 100) {
-                Logger.writer.FlushAsync();
+                Logger.writer.Flush();
 
                 writeLineCount = 0;
             }

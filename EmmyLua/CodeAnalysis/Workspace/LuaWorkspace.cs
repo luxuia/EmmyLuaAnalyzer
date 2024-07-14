@@ -177,7 +177,7 @@ public class LuaWorkspace
             if (document.Path.Contains("editor_hint")) {
                 document.ReplaceText(ReadFile(document.Path));
                 
-                UpdateDelayRequire(document.Id);
+                DoDelayRequire(document.Id);
 
                 Compilation.AddSyntaxTree(document.Id, document.SyntaxTree);
             }
@@ -257,7 +257,7 @@ public class LuaWorkspace
             PathToDocument[document.Path] = document.Id;
             ModuleManager.AddDocument(document);
 
-            UpdateDelayRequire(document.Id);
+            DoDelayRequire(document.Id);
 
             Compilation.AddSyntaxTree(document.Id, document.SyntaxTree);
         }
@@ -280,7 +280,7 @@ public class LuaWorkspace
 
             Compilation.AddSyntaxTree(document.Id, document.SyntaxTree);
 
-            UpdateDelayRequire(document.Id);
+            DoDelayRequire(document.Id);
         }
     }
 
@@ -307,7 +307,21 @@ public class LuaWorkspace
         }
     }
 
+    public HashSet<LuaDocumentId> delayRequired = new HashSet<LuaDocumentId>();
+    public void DoDelayRequire(LuaDocumentId id) {
+        delayRequired.Clear();
+        UpdateDelayRequire(id);
+
+        foreach (var docid in delayRequired) {
+            var doc = GetDocument(docid);
+            Compilation.AddSyntaxTree(doc.Id, doc.SyntaxTree);
+        }
+    }
+
     public void UpdateDelayRequire(LuaDocumentId documentId) {
+        if (delayRequired.Contains(documentId)) return;
+        delayRequired.Add(documentId);
+
         var SyntaxTree = GetDocument(documentId).SyntaxTree;
 
         var blocks = SyntaxTree.SyntaxRoot.Descendants.OfType<LuaCallArgListSyntax>();
@@ -321,27 +335,25 @@ public class LuaWorkspace
                 if (doc == null) {
                     var path = GetPathByModule(moduleName.Replace('.', Path.DirectorySeparatorChar));
                     if (!string.IsNullOrEmpty(path)) {
-                        GetDocumentByPath(path);
-                        var exclude = excludeFolders.Any(filter => path.Contains(filter));
-                        if (!exclude) {
-                            doc = LuaDocument.OpenDocument(path, Features.Language);
-                            AddDocument(doc);
+                        doc = GetDocumentByPath(path);
+                        if (doc == null) {
+                            var exclude = excludeFolders.Any(filter => path.Contains(filter));
+                            if (!exclude) {
+                                doc = LuaDocument.OpenDocument(path, Features.Language);
+                                AddDocument(doc);
+                            }
                         }
                     }
                 }
 
                 if (doc != null) {
-                    if (Compilation.GetSyntaxTree(doc.Id) == null) {
+                    if (Compilation.GetSyntaxTree(doc.Id) == null && !delayRequired.Contains(doc.Id)) {
 
                         using (new Logger.Log($"AddDocument {doc.Path}")) {
 
                             doc.ReplaceText(ReadFile(doc.Path));
 
-                            var xx = doc.SyntaxTree;
-
                             UpdateDelayRequire(doc.Id);
-
-                            Compilation.AddSyntaxTree(doc.Id, doc.SyntaxTree);
                         }
                     }
                 }
@@ -359,7 +371,7 @@ public class LuaWorkspace
                 document.ReplaceText(text);
                 Compilation.RemoveSyntaxTree(documentId);
 
-                UpdateDelayRequire(documentId);
+                DoDelayRequire(documentId);
 
                 Compilation.AddSyntaxTree(documentId, document.SyntaxTree);
             }

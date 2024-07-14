@@ -205,7 +205,6 @@ public class ServerContext(ILanguageServerFacade server)
         if (workspaceNeedReload)
         {
             LuaWorkspace = LuaWorkspace.CleanCreate();
-            LuaWorkspace.Logger = new StreamWriter("lua_emmy_log.txt", true);
             LuaWorkspace.Monitor = Monitor;
             LuaWorkspace.Features = newFeatures;
             LuaWorkspace.InitStdLib();
