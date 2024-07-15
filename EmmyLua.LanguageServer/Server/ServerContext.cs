@@ -99,8 +99,12 @@ public class ServerContext(ILanguageServerFacade server)
                 MainWorkspacePath = rootPath;
                 LuaWorkspace.Monitor = Monitor;
 
-                var logpath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "../../lua_emmy_log.txt");
-                Logger.writer = new StreamWriter(logpath, false);
+                try {
+                    var logpath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "../../lua_emmy_log.txt");
+                    Logger.writer = new StreamWriter(logpath, false);
+                } catch {
+
+                }
                 SettingManager.SupportMultiEncoding();
                 SettingManager.Watch(MainWorkspacePath);
                 SettingManager.OnSettingChanged += OnConfigChanged;

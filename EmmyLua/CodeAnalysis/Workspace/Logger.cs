@@ -26,15 +26,16 @@ public class Logger {
 
 
         public void Dispose() {
-            
-            Logger.writer.WriteLine($"{prefix} CostTime {(DateTimeOffset.Now.ToUnixTimeMilliseconds() - startTime)/1000.0} {extra}");
+            if (writer != null) {
+                Logger.writer.WriteLine($"{prefix} CostTime {(DateTimeOffset.Now.ToUnixTimeMilliseconds() - startTime) / 1000.0} {extra}");
 
-            writeLineCount++;
+                writeLineCount++;
 
-            if (writeLineCount > 100) {
-                Logger.writer.Flush();
+                if (writeLineCount > 100) {
+                    Logger.writer.Flush();
 
-                writeLineCount = 0;
+                    writeLineCount = 0;
+                }
             }
         }
     }
